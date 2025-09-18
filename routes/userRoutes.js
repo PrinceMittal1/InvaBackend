@@ -14,6 +14,8 @@ const openai = new OpenAI({
 router.post("/create", async (req, res) => {
   try {
     const userData = req.body;
+
+    console.log("user dtaa is --- 1")
     const conditions = [];
     if (userData.email) {
       conditions.push({ email: userData.email });
@@ -21,10 +23,12 @@ router.post("/create", async (req, res) => {
     if (userData.phoneNumber) {
       conditions.push({ phoneNumber: userData.phoneNumber });
     }
+    console.log("user dtaa is --- 2")
     let existingUser = null;
     if (conditions.length > 0) {
       existingUser = await User.findOne({ $or: conditions }).select("-password -vector");
     }
+    console.log("user dtaa is --- 3")
     if (existingUser) {
       if (userData.email && existingUser.email === userData.email) {
         res.status(200).json({
@@ -39,6 +43,7 @@ router.post("/create", async (req, res) => {
         });
       }
     }
+    console.log("user dtaa is --- 4")
     const user = new User({
       ...userData,
       vector: null
@@ -48,6 +53,7 @@ router.post("/create", async (req, res) => {
       savedUser.user_id = savedUser._id.toString();
       await savedUser.save();
     }
+    console.log("user dtaa is --- 5")
     res.status(200).json({
       status: "success",
       user: savedUser,
@@ -238,7 +244,6 @@ router.get("/wishlist", async (req, res) => {
 router.get("/detail", async (req, res) => {
   try {
     const { user_id } = req.query;
-    console.log("existing user is ------ user_id", user_id)
     if (!user_id) {
       return res.status(400).json({ status: "error", message: "user_id is required" });
     }
@@ -246,6 +251,34 @@ router.get("/detail", async (req, res) => {
     res.status(200).json({
       data : existingUser
     })
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+
+router.delete("/delete", async (req, res) => {
+  try {
+    console.log("existing user is ------ user_id", req.body)
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ status: "error", message: "user_id is required" });
+    }
+    await Promise.all([
+      LikeCollection.deleteMany({ user_id }),
+      Saved.deleteMany({ user_id }),
+      FollowedCollection.deleteMany({ user_id }),
+      SellerCollection.deleteMany({ user_id })
+    ]);
+    const deletedUser = await User.findOneAndDelete({ user_id });
+    if (!deletedUser) {
+      return res.status(404).json({ status: "error", message: "User not found" });
+    }
+    res.status(200).json({
+      status: "success",
+      message: "Account deleted successfully"
+    });
+
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
   }
