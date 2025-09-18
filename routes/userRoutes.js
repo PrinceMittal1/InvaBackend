@@ -13,6 +13,9 @@ const openai = new OpenAI({
 
 router.post("/create", async (req, res) => {
   try {
+    console.log("user dtaa is --- 0")
+
+    console.log("user dtaa is --- 001", req.body)
     const userData = req.body;
 
     console.log("user dtaa is --- 1")
