@@ -20,10 +20,12 @@ app.get("/", (req, res) => {
 const userRoutes = require("./routes/userRoutes");
 const productRoutes = require("./routes/productRoute");
 const sellerRoutes = require("./routes/sellerRoute");
+const contentRoutes = require("./routes/contentRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/seller", sellerRoutes);
+app.use("/api/content", contentRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
