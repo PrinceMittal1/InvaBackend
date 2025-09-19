@@ -3,22 +3,37 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 
+// Load environment variables
 dotenv.config();
 
+// Initialize express
 const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch(err => console.error("❌ MongoDB Connection Error:", err));
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("✅ MongoDB Connected");
+  } catch (error) {
+    console.error("❌ MongoDB Connection Error:", error.message);
+    process.exit(1);
+  }
+};
+connectDB();
 
-// Basic test route
+// Routes
 app.get("/", (req, res) => {
-  res.send("API is working!");
+  res.send("✅ API is working!");
 });
 
+// Import and use route files
 const userRoutes = require("./routes/userRoutes");
 const productRoutes = require("./routes/productRoute");
 const sellerRoutes = require("./routes/sellerRoute");
@@ -29,5 +44,8 @@ app.use("/api/product", productRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/content", contentRoutes);
 
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+module.exports = app; // <-- so other files can safely import app if needed
