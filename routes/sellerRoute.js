@@ -11,12 +11,14 @@ const Followed = require("../models/Followed");
 
 router.post("/create", async (req, res) => {
   try {
+    console.log("coming here -- ")
     const userData = req.body;
     const conditions = [];
 
     if (userData.email) {
       conditions.push({ email: userData.email });
     }
+    console.log("coming here -- 1")
     if (userData.phoneNumber) {
       conditions.push({ phoneNumber: userData.phoneNumber });
     }
@@ -24,6 +26,7 @@ router.post("/create", async (req, res) => {
     if (conditions.length > 0) {
       existingUser = await SellerCollection.findOne({ $or: conditions }).select("-password -vector");
     }
+    console.log("coming here -- 2", existingUser)
     if (existingUser) {
       if (userData.email && existingUser.email === userData.email) {
         res.status(201).json({
@@ -38,12 +41,14 @@ router.post("/create", async (req, res) => {
         });
       }
     }
+    console.log("coming here -- 3", userData)
     const user = new SellerCollection({
       ...userData,
       vector: null
     });
     const savedUser = await user.save();
 
+    console.log("coming here -- 4", savedUser)
     if (!savedUser.seller_id) {
       savedUser.seller_id = savedUser._id.toString();
       await savedUser.save();

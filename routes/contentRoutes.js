@@ -177,6 +177,7 @@ router.get("/inva/:type", (req, res) => {
 
 // Inva Business routes
 router.get("/inva-business/:type", (req, res) => {
+  console.log("checking logs - 0")
   const { type } = req.params;
   if (!invaBusinessContent[type]) {
     return res.status(404).send("<h1>404 - Page Not Found</h1>");
