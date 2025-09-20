@@ -56,6 +56,29 @@ const invaContent = {
 
     <h2>Contact Us</h2>
     <p>Email: info@inva.com</p>
+  `,
+  delete_account_content: `
+    <h1>Delete Your Inva Account</h1>
+    <p><strong>Effective Date:</strong> ${today}</p>
+    <p><strong>Last Updated:</strong> ${today}</p>
+
+    <h2>How to Delete Your Account</h2>
+    <p>To delete your Inva account and all associated data, follow these steps:</p>
+    <ol>
+      <li>Open the Inva app.</li>
+      <li>Go to <strong>Profile → Delete Account</strong>.</li>
+      <li>Confirm deletion.</li>
+    </ol>
+
+    <h2>Alternative Method</h2>
+    <p>If you cannot delete your account through the app, you can send a request manually:</p>
+    <ul>
+      <li>Email: <a href="mailto:info@inva.com">info@inva.net.in</a></li>
+      <li>Include your registered email to process the account deletion.</li>
+    </ul>
+
+    <h2>Note</h2>
+    <p>Once deleted, all your account data will be permanently removed and cannot be recovered.</p>
   `
 };
 
@@ -114,6 +137,29 @@ const invaBusinessContent = {
 
     <h2>Contact Us</h2>
     <p>Email: info@inva.com</p>
+  `,
+  delete_account_content: `
+    <h1>Delete Your Inva Business Account</h1>
+    <p><strong>Effective Date:</strong> ${today}</p>
+    <p><strong>Last Updated:</strong> ${today}</p>
+
+    <h2>How to Delete Your Account</h2>
+    <p>To delete your Inva Business account and all associated data, follow these steps:</p>
+    <ol>
+      <li>Open the Inva Business app.</li>
+      <li>Go to <strong>Profile → Delete Account</strong>.</li>
+      <li>Confirm deletion.</li>
+    </ol>
+
+    <h2>Alternative Method</h2>
+    <p>If you cannot delete your account through the app, you can send a request manually:</p>
+    <ul>
+      <li>Email: <a href="mailto:info@inva.com">info@inva.net.in</a></li>
+      <li>Include your registered email to process the account deletion.</li>
+    </ul>
+
+    <h2>Note</h2>
+    <p>Once deleted, all your account data will be permanently removed and cannot be recovered.</p>
   `
 };
 
