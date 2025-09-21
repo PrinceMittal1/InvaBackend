@@ -59,7 +59,7 @@ app.get("/product/:id", (req, res) => {
         setTimeout(() => {
           const ua = navigator.userAgent || navigator.vendor || window.opera;
           if (/android/i.test(ua)) {
-            window.location = "https://play.google.com/store/apps/details?id=com.myapp";
+            window.location = "https://play.google.com/store/apps/details?id=com.invaID";
           } else if (/iPad|iPhone|iPod/.test(ua)) {
             window.location = "https://apps.apple.com/app/idYOUR_APPLE_ID";
           }
@@ -69,7 +69,7 @@ app.get("/product/:id", (req, res) => {
     <body>
       <h1>Product ${id}</h1>
       <p>Open in the app for full experience.</p>
-      <a href="https://play.google.com/store/apps/details?id=com.myapp">Download for Android</a><br/>
+      <a href="https://play.google.com/store/apps/details?id=com.invaID">Download for Android</a><br/>
       <a href="https://apps.apple.com/app/idYOUR_APPLE_ID">Download for iOS</a>
     </body>
     </html>
