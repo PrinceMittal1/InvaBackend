@@ -7,7 +7,8 @@ const openai = new OpenAI({
 });
 const User = require("../models/User");
 const Followed = require("../models/Followed");
-
+const Product = require("../models/Product");
+const FollowedCollection = require("../models/Followed");
 
 router.post("/create", async (req, res) => {
   try {
@@ -229,6 +230,35 @@ router.post("/follow", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+
+router.delete("/delete", async (req, res) => {
+  try {
+    console.log("existing user is ------ user_id", req.body)
+    const { seller_id } = req.body;
+    if (!seller_id) {
+      return res.status(400).json({ status: "error", message: "user_id is required" });
+    }
+    console.log("existing user is ------ seller_id 2", seller_id)
+    await Promise.all([
+      FollowedCollection.deleteMany({ seller_id }),
+      Product.deleteMany({ seller_id })
+    ]);
+    const deletedUser = await SellerCollection.findOneAndDelete({ seller_id });
+    console.log("existing user is ------ seller_id 3", deletedUser)
+    if (!deletedUser) {
+      return res.status(404).json({ status: "error", message: "User not found" });
+    }
+    res.status(200).json({
+      status: "success",
+      message: "Account deleted successfully"
+    });
+
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
 
 
 
