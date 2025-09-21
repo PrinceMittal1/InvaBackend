@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const path = require("path");
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +41,7 @@ const productRoutes = require("./routes/productRoute");
 const sellerRoutes = require("./routes/sellerRoute");
 const contentRoutes = require("./routes/contentRoutes");
 
+app.use("/.well-known", express.static(path.join(__dirname, ".well-known")));
 app.use("/api/users", userRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/seller", sellerRoutes);
