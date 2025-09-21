@@ -42,10 +42,44 @@ const sellerRoutes = require("./routes/sellerRoute");
 const contentRoutes = require("./routes/contentRoutes");
 
 app.use("/.well-known", express.static(path.join(__dirname, ".well-known")));
+app.get("/product/:id", (req, res) => {
+  const { id } = req.params;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Product ${id}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <script>
+        // Try opening app via custom scheme
+        window.location = "myapp://product/${id}";
+
+        // Redirect to store after 1 second if app not installed
+        setTimeout(() => {
+          const ua = navigator.userAgent || navigator.vendor || window.opera;
+          if (/android/i.test(ua)) {
+            window.location = "https://play.google.com/store/apps/details?id=com.myapp";
+          } else if (/iPad|iPhone|iPod/.test(ua)) {
+            window.location = "https://apps.apple.com/app/idYOUR_APPLE_ID";
+          }
+        }, 1000);
+      </script>
+    </head>
+    <body>
+      <h1>Product ${id}</h1>
+      <p>Open in the app for full experience.</p>
+      <a href="https://play.google.com/store/apps/details?id=com.myapp">Download for Android</a><br/>
+      <a href="https://apps.apple.com/app/idYOUR_APPLE_ID">Download for iOS</a>
+    </body>
+    </html>
+  `);
+});
 app.use("/api/users", userRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/content", contentRoutes);
+
 
 // Start server
 const PORT = process.env.PORT || 3000;
