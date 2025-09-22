@@ -220,6 +220,7 @@ router.post("/like", async (req, res) => {
 
 router.get("/all/products/for/customer", async (req, res) => {
   try {
+    console.log("----- ", req.query)
     const { customerUserId: user_id, page = 1, limit = 5, search_text } = req.query;
 
     if (!user_id) {
@@ -283,7 +284,7 @@ router.get("/all/products/for/customer", async (req, res) => {
           liked_me: likedProductIds.has(p._id.toString()),
           saved: savedProductIds.has(p._id.toString()),
           followed: !!isFollowing,
-          sellerProfile: sellerDetail.profile_picture ?? ''
+          sellerProfile: sellerDetail?.profile_picture ?? ''
         };
       })
     );
