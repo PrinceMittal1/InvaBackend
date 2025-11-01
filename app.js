@@ -3,11 +3,17 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
+const admin = require("firebase-admin");
 
 // Load environment variables
 dotenv.config();
 
-// Initialize express
+const serviceAccount = require("./serviceAccountKey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 const app = express();
 
 // Middleware
@@ -35,7 +41,23 @@ app.get("/", (req, res) => {
   res.send("✅ API is working!");
 });
 
-// Import and use route files
+app.post("/send-notification", async (req, res) => {
+  try {
+    const { token, title, body } = req.body;
+
+    const message = {
+      notification: { title, body },
+      token,
+    };
+
+    await admin.messaging().send(message);
+    res.status(200).json({ success: true, message: "Notification sent!" });
+  } catch (error) {
+    console.error("❌ Error sending notification:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 const userRoutes = require("./routes/userRoutes");
 const productRoutes = require("./routes/productRoute");
 const sellerRoutes = require("./routes/sellerRoute");

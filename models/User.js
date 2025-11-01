@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema({
   age:{type:Number},
   interest:{type:[String]},
   gender:{type:String},
+  cords: {
+    latitude: { type: String },
+    longitude: { type: String }
+  },
   profile_picture : {type : String},
   email: { type: String, unique: true},
   vector: {type : [String]},

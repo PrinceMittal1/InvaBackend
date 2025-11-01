@@ -73,9 +73,16 @@ router.post("/updating", async (req, res) => {
     if (!userData._id) {
       return res.status(400).json({ status: "error", message: "User ID is required" });
     }
+    const updatedFields = {
+      ...userData,
+      cords: {
+        latitude: userData?.cords?.latitude || "0",
+        longitude: userData?.cords?.longitude || "0",
+      },
+    };
     const updatedUser = await User.findByIdAndUpdate(
       userData._id,
-      { $set: userData },
+      { $set: updatedFields },
       { new: true }
     );
     if (!updatedUser) {

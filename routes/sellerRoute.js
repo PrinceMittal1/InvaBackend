@@ -12,14 +12,12 @@ const FollowedCollection = require("../models/Followed");
 
 router.post("/create", async (req, res) => {
   try {
-    console.log("coming here -- ")
     const userData = req.body;
     const conditions = [];
-
+     console.log("coming here -- 1", userData.phoneNumber)
     if (userData.email) {
       conditions.push({ email: userData.email });
     }
-    console.log("coming here -- 1")
     if (userData.phoneNumber) {
       conditions.push({ phoneNumber: userData.phoneNumber });
     }
@@ -45,6 +43,10 @@ router.post("/create", async (req, res) => {
     console.log("coming here -- 3", userData)
     const user = new SellerCollection({
       ...userData,
+      cords: {
+        latitude: userData?.cords?.latitude || "0",
+        longitude: userData?.cords?.longitude || "0",
+      },
       vector: null
     });
     const savedUser = await user.save();
@@ -72,9 +74,17 @@ router.post("/updating", async (req, res) => {
     if (!userData._id) {
       return res.status(400).json({ status: "error", message: "User ID is required" });
     }
+    const updatedFields = {
+      ...userData,
+      cords: {
+        latitude: userData?.cords?.latitude || "0",
+        longitude: userData?.cords?.longitude || "0",
+      },
+    };
+
     const updatedUser = await SellerCollection.findByIdAndUpdate(
       userData._id,
-      { $set: userData },
+      { $set: updatedFields },
       { new: true }
     );
     if (!updatedUser) {
