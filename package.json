@@ -12,10 +12,12 @@
   "description": "",
   "dependencies": {
     "@pinecone-database/pinecone": "^6.1.2",
+    "axios": "^1.13.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "firebase-admin": "^13.5.0",
+    "haversine-distance": "^1.2.4",
     "mongoose": "^8.17.1",
     "openai": "^5.12.2"
   },

@@ -60,6 +60,7 @@ app.post("/send-notification", async (req, res) => {
 
 const userRoutes = require("./routes/userRoutes");
 const productRoutes = require("./routes/productRoute");
+const notificationRoutes = require("./routes/notificationRoute");
 const sellerRoutes = require("./routes/sellerRoute");
 const contentRoutes = require("./routes/contentRoutes");
 
@@ -99,6 +100,7 @@ app.get("/product/:id", (req, res) => {
 });
 app.use("/api/users", userRoutes);
 app.use("/api/product", productRoutes);
+app.use("/api/notification", notificationRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/content", contentRoutes);
 

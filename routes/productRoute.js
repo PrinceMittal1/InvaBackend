@@ -9,7 +9,10 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 const Saved = require("../models/Saved");
+const Notification = require("../models/notification");
+const haversine = require("haversine-distance");
 const FollowedCollection = require("../models/Followed");
+const sendNotification = require("../utils/sendNotification");
 
 
 router.post("/create", async (req, res) => {
@@ -155,6 +158,7 @@ router.post("/like", async (req, res) => {
     }
 
     const existingLike = await LikeCollection.findOne({ user_id, product_id });
+
     if (existingLike) {
       await LikeCollection.deleteOne({ _id: existingLike._id });
       await Product.findByIdAndUpdate(product_id, { $inc: { likeCount: -1 } });
@@ -163,18 +167,27 @@ router.post("/like", async (req, res) => {
         message: "Product unliked",
       });
     } else {
+      // Save like
       const like = new LikeCollection({ user_id, product_id });
       await like.save();
       await Product.findByIdAndUpdate(product_id, { $inc: { likeCount: 1 } });
 
+      // --- Respond immediately to user ---
+      res.status(200).json({
+        status: "success",
+        message: "Product liked",
+      });
+
+      // --- Background operations (non-blocking) ---
       (async () => {
         try {
+          // Update user vector asynchronously
           const product = await Product.findById(product_id);
           if (!product) return;
 
           const description = `Title: ${product.title || ""}
           Description: ${product.description || ""}
-          Category: ${product.category || ""}
+          Category: ${(product.category || "")}
           Tags: ${(product.tags || []).join(", ")}`;
 
           const embeddingResponse = await openai.embeddings.create({
@@ -187,32 +200,53 @@ router.post("/like", async (req, res) => {
 
           if (user) {
             let updatedVector = productVector;
-
             if (Array.isArray(user.vector) && user.vector.length === productVector.length) {
               const weightUser = 0.7;
               const weightProduct = 0.3;
               updatedVector = user.vector.map((val, idx) => {
                 const userVal = isNaN(val) ? 0 : val;
                 const productVal = isNaN(productVector[idx]) ? 0 : productVector[idx];
-                return (userVal * weightUser + productVal * weightProduct);
+                return userVal * weightUser + productVal * weightProduct;
               });
-            } else {
-              updatedVector = productVector.map(v => (isNaN(v) ? 0 : v));
             }
-
             await User.findByIdAndUpdate(user_id, { vector: updatedVector });
           }
+
+          if (product.sellerId && product.sellerId !== user_id) {
+            const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+            const recentNotification = await Notification.findOne({
+              seller_id: product.sellerId,
+              type: "product",
+              createdAt: { $gte: threeHoursAgo },
+            });
+
+            // Only send if no recent product notification
+            if (!recentNotification) {
+              const liker = await User.findById(user_id);
+              const likerName = liker?.name || "Someone";
+
+              const title = "Your product got a new like ❤️";
+              const body = `${likerName} liked your product "${product.title}".`;
+              await sendNotification(
+                null,
+                title,
+                body,
+                { type: "product", product_id: product._id },
+                product.sellerId // sellerId
+              );
+
+              console.log("✅ Like notification sent to seller: ---- second", product.sellerId);
+            } else {
+              console.log("⏳ Seller already received a product notification in the last 3 hours");
+            }
+          }
         } catch (err) {
-          console.error("Vector update failed:", err.message);
+          console.error("⚠️ Background like handler failed:", err.message);
         }
       })();
-
-      return res.status(200).json({
-        status: "success",
-        message: "Product liked",
-      });
     }
   } catch (err) {
+    console.error("❌ Like API Error:", err);
     res.status(500).json({ status: "error", message: err.message });
   }
 });
@@ -220,16 +254,14 @@ router.post("/like", async (req, res) => {
 
 router.get("/all/products/for/customer", async (req, res) => {
   try {
-    console.log("----- ", req.query)
     const { customerUserId: user_id, page = 1, limit = 5, search_text } = req.query;
-
     if (!user_id) {
       return res.status(400).json({ status: "error", message: "user_id is required" });
     }
 
     const user = await User.findById(user_id);
-    if (!user || !user.vector) {
-      return res.status(404).json({ status: "error", message: "User vector not found" });
+    if (!user || !user.vector || !user.cords?.latitude || !user.cords?.longitude) {
+      return res.status(404).json({ status: "error", message: "User vector or location not found" });
     }
 
     let filter = { vector: { $exists: true } };
@@ -241,50 +273,63 @@ router.get("/all/products/for/customer", async (req, res) => {
     }
 
     const products = await Product.find(filter);
+    // Calculate similarity + distance
+    const productsWithScores = await Promise.all(
+      products.map(async (p) => {
+        const seller = await SellerCollection.findById(p.sellerId);
+        if (!seller || !seller.cords?.latitude) return null;
 
-    const productsWithScore = products.map(p => ({
-      product: p,
-      score: cosineSimilarity(user.vector, p.vector)
-    }));
+        const similarity = cosineSimilarity(user.vector, p.vector);
 
-    productsWithScore.sort((a, b) => b.score - a.score);
+        // Calculate distance (in meters)
+        const userCoord = { lat: user.cords?.latitude, lon: user.cords?.longitude };
+        const sellerCoord = { lat: seller.cords?.latitude, lon: seller.cords?.longitude };
+        const distance = haversine(userCoord, sellerCoord); // in meters
 
+        return { product: p, seller, similarity, distance };
+      })
+    );
+
+    // Filter out missing sellers
+    const validProducts = productsWithScores.filter(Boolean);
+    // Sort: higher similarity first, then closer distance
+    validProducts.sort((a, b) => {
+      if (b.similarity === a.similarity) {
+        return a.distance - b.distance; // smaller distance first
+      }
+      return b.similarity - a.similarity;
+    });
+    console.log("productsproducts paginated", validProducts.length)
+
+    // Pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + parseInt(limit);
+    const paginated = validProducts.slice(startIndex, endIndex);
 
-    const paginatedProducts = productsWithScore.slice(startIndex, endIndex).map(p => {
-      const productObj = p.product.toObject ? p.product.toObject() : p.product;
-      delete productObj.vector;
-      return productObj;
-    });
-
-    const likedDocs = await LikeCollection.find({
-      user_id,
-      product_id: { $in: paginatedProducts.map(p => p._id) }
-    }).select("product_id");
-
-    const savedDocs = await Saved.find({
-      user_id,
-      product_id: { $in: paginatedProducts.map(p => p._id) }
-    }).select("product_id");
-
+    // Prepare liked/saved/followed details
+    const productIds = paginated.map(p => p.product._id);
+    const likedDocs = await LikeCollection.find({ user_id, product_id: { $in: productIds } }).select("product_id");
+    const savedDocs = await Saved.find({ user_id, product_id: { $in: productIds } }).select("product_id");
     const likedProductIds = new Set(likedDocs.map(doc => doc.product_id.toString()));
     const savedProductIds = new Set(savedDocs.map(doc => doc.product_id.toString()));
 
+
     const finalProducts = await Promise.all(
-      paginatedProducts.map(async (p) => {
-        let seller_id = p.sellerId
-        const isFollowing = await FollowedCollection.exists({
-          user_id,
-          seller_id
-        });
-        const sellerDetail = await SellerCollection.findById(seller_id);
+      paginated.map(async (entry) => {
+        const { product, seller } = entry;
+        const isFollowing = await FollowedCollection.exists({ user_id, seller_id: seller._id });
+
+        const productObj = product.toObject ? product.toObject() : product;
+        delete productObj.vector;
+
         return {
-          ...p,
-          liked_me: likedProductIds.has(p._id.toString()),
-          saved: savedProductIds.has(p._id.toString()),
+          ...productObj,
+          liked_me: likedProductIds.has(product._id.toString()),
+          saved: savedProductIds.has(product._id.toString()),
           followed: !!isFollowing,
-          sellerProfile: sellerDetail?.profile_picture ?? ''
+          sellerProfile: seller.profile_picture ?? '',
+          distance_km: (entry.distance / 1000).toFixed(2),
+          similarity: entry.similarity
         };
       })
     );
@@ -293,11 +338,12 @@ router.get("/all/products/for/customer", async (req, res) => {
       status: "success",
       page: parseInt(page),
       limit: parseInt(limit),
-      total_products: productsWithScore.length,
+      total_products: validProducts.length,
       products: finalProducts
     });
 
   } catch (error) {
+    console.error("Error:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });

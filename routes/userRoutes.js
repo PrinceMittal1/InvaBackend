@@ -10,7 +10,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-
 router.post("/create", async (req, res) => {
   try {
     console.log("user dtaa is --- 0")
@@ -113,6 +112,43 @@ router.post("/updating", async (req, res) => {
     }
   }
 });
+
+router.post("/updating/fcm", async (req, res) => {
+  try {
+    const { user_id, notification_token } = req.body;
+    if (!user_id || !notification_token) {
+      return res.status(400).json({
+        status: "error",
+        message: "user_id and notification_token are required",
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      user_id,
+      { $set: { notification_token } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Notification token updated successfully",
+      userData: updatedUser,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+});
+
 
 router.post("/following/seller", async (req, res) => {
   try {

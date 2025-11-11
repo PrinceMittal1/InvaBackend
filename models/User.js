@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   stateCode: {type:String},
   age:{type:Number},
   interest:{type:[String]},
+  notification_token : {type : String},
   gender:{type:String},
   cords: {
     latitude: { type: String },

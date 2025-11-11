@@ -118,6 +118,41 @@ router.post("/updating", async (req, res) => {
   }
 });
 
+router.post("/updating/fcm", async (req, res) => {
+  try {
+    const { seller_id, notification_token } = req.body;
+    if (!seller_id || !notification_token) {
+      return res.status(400).json({
+        status: "error",
+        message: "seller_id and notification_token are required",
+      });
+    }
+
+    const updatedseller = await SellerCollection.findByIdAndUpdate(
+      seller_id,
+      { $set: { notification_token } },
+      { new: true }
+    );
+
+    if (!updatedseller) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Notification token updated successfully"
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+});
+
 
 router.get("/detail", async (req, res) => {
   try {

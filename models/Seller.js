@@ -11,6 +11,7 @@ const sellerSchema = new mongoose.Schema({
   state: { type: String },
   products: { type: [String] },
   profile_picture: { type: String },
+  notification_token : {type : String},
   cords: {
     latitude: { type: String },
     longitude: { type: String }
