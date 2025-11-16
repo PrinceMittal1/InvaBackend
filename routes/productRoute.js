@@ -18,8 +18,16 @@ const sendNotification = require("../utils/sendNotification");
 router.post("/create", async (req, res) => {
   try {
     const productData = req.body;
+    const seller = await SellerCollection.findById(productData?.sellerId);
+    if (!seller) {
+      return res.status(404).json({ status: "error", message: "Seller not found" });
+    }
     const product = new Product({
       ...productData,
+      cords: {
+        latitude: seller?.cords?.latitude,
+        longitude: seller?.cords?.longitude
+      },
       vector: null
     });
     const savedProduct = await product.save();
@@ -252,94 +260,273 @@ router.post("/like", async (req, res) => {
 });
 
 
+// router.get("/all/products/for/customer", async (req, res) => {
+//   try {
+//     const { customerUserId: user_id, page = 1, limit = 5, search_text } = req.query;
+//     if (!user_id) {
+//       return res.status(400).json({ status: "error", message: "user_id is required" });
+//     }
+
+//     const user = await User.findById(user_id);
+//         console.log("customerUserIdcustomerUserIdcustomerUserId", user)
+//     if (!user || !user.vector || !user.cords?.latitude || !user.cords?.longitude) {
+//       return res.status(404).json({ status: "error", message: "User vector or location not found" });
+//     }
+
+//     let filter = { vector: { $exists: true } };
+//     if (search_text && search_text.trim() !== "") {
+//       filter.$or = [
+//         { name: { $regex: search_text, $options: "i" } },
+//         { description: { $regex: search_text, $options: "i" } }
+//       ];
+//     }
+
+//     const products = await Product.find(filter);
+//     // Calculate similarity + distance
+//     const productsWithScores = await Promise.all(
+//       products.map(async (p) => {
+//         const seller = await SellerCollection.findById(p.sellerId);
+//         if (!seller || !seller.cords?.latitude) return null;
+
+//         const similarity = cosineSimilarity(user.vector, p.vector);
+
+//         // Calculate distance (in meters)
+//         const userCoord = { lat: user.cords?.latitude, lon: user.cords?.longitude };
+//         const sellerCoord = { lat: seller.cords?.latitude, lon: seller.cords?.longitude };
+//         const distance = haversine(userCoord, sellerCoord); // in meters
+
+//         return { product: p, seller, similarity, distance };
+//       })
+//     );
+
+//     // Filter out missing sellers
+//     const validProducts = productsWithScores.filter(Boolean);
+//     // Sort: higher similarity first, then closer distance
+//     validProducts.sort((a, b) => {
+//       if (b.similarity === a.similarity) {
+//         return a.distance - b.distance; // smaller distance first
+//       }
+//       return b.similarity - a.similarity;
+//     });
+//     console.log("productsproducts paginated", validProducts.length)
+
+//     // Pagination
+//     const startIndex = (page - 1) * limit;
+//     const endIndex = startIndex + parseInt(limit);
+//     const paginated = validProducts.slice(startIndex, endIndex);
+
+//     // Prepare liked/saved/followed details
+//     const productIds = paginated.map(p => p.product._id);
+//     const likedDocs = await LikeCollection.find({ user_id, product_id: { $in: productIds } }).select("product_id");
+//     const savedDocs = await Saved.find({ user_id, product_id: { $in: productIds } }).select("product_id");
+//     const likedProductIds = new Set(likedDocs.map(doc => doc.product_id.toString()));
+//     const savedProductIds = new Set(savedDocs.map(doc => doc.product_id.toString()));
+
+
+//     const finalProducts = await Promise.all(
+//       paginated.map(async (entry) => {
+//         const { product, seller } = entry;
+//         const isFollowing = await FollowedCollection.exists({ user_id, seller_id: seller._id });
+
+//         const productObj = product.toObject ? product.toObject() : product;
+//         delete productObj.vector;
+
+//         return {
+//           ...productObj,
+//           liked_me: likedProductIds.has(product._id.toString()),
+//           saved: savedProductIds.has(product._id.toString()),
+//           followed: !!isFollowing,
+//           sellerProfile: seller.profile_picture ?? '',
+//           distance_km: (entry.distance / 1000).toFixed(2),
+//           similarity: entry.similarity
+//         };
+//       })
+//     );
+
+//     res.status(200).json({
+//       status: "success",
+//       page: parseInt(page),
+//       limit: parseInt(limit),
+//       total_products: validProducts.length,
+//       products: finalProducts
+//     });
+
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).json({ status: "error", message: error.message });
+//   }
+// });
+
+
 router.get("/all/products/for/customer", async (req, res) => {
   try {
     const { customerUserId: user_id, page = 1, limit = 5, search_text } = req.query;
+
     if (!user_id) {
       return res.status(400).json({ status: "error", message: "user_id is required" });
     }
 
     const user = await User.findById(user_id);
+
     if (!user || !user.vector || !user.cords?.latitude || !user.cords?.longitude) {
       return res.status(404).json({ status: "error", message: "User vector or location not found" });
     }
 
-    let filter = { vector: { $exists: true } };
+    const userLat = parseFloat(user.cords.latitude);
+    const userLon = parseFloat(user.cords.longitude);
+    const userVector = user.vector.map(v => parseFloat(v));
+
+    // MATCH FILTER
+    let matchFilter = {};
     if (search_text && search_text.trim() !== "") {
-      filter.$or = [
-        { name: { $regex: search_text, $options: "i" } },
+      matchFilter.$or = [
+        { title: { $regex: search_text, $options: "i" } },
         { description: { $regex: search_text, $options: "i" } }
       ];
     }
 
-    const products = await Product.find(filter);
-    // Calculate similarity + distance
-    const productsWithScores = await Promise.all(
-      products.map(async (p) => {
-        const seller = await SellerCollection.findById(p.sellerId);
-        if (!seller || !seller.cords?.latitude) return null;
+    // MAIN AGGREGATION
+    const products = await Product.aggregate([
+      { $match: matchFilter },
 
-        const similarity = cosineSimilarity(user.vector, p.vector);
+      {
+        $addFields: {
+          prodLat: { $toDouble: "$cords.latitude" },
+          prodLon: { $toDouble: "$cords.longitude" },
+          productVector: {
+            $map: { input: "$vector", as: "v", in: { $toDouble: "$$v" } }
+          }
+        }
+      },
 
-        // Calculate distance (in meters)
-        const userCoord = { lat: user.cords?.latitude, lon: user.cords?.longitude };
-        const sellerCoord = { lat: seller.cords?.latitude, lon: seller.cords?.longitude };
-        const distance = haversine(userCoord, sellerCoord); // in meters
+      // PRE-CALC for radians
+      {
+        $addFields: {
+          lat1Rad: userLat * Math.PI / 180,
+          lon1Rad: userLon * Math.PI / 180,
+          lat2Rad: { $multiply: ["$prodLat", 0.017453292519943295] },
+          lon2Rad: { $multiply: ["$prodLon", 0.017453292519943295] }
+        }
+      },
 
-        return { product: p, seller, similarity, distance };
-      })
-    );
+      // DISTANCE CALCULATION
+      {
+        $addFields: {
+          distance_m: {
+            $let: {
+              vars: {
+                dLat: { $subtract: ["$lat2Rad", "$lat1Rad"] },
+                dLon: { $subtract: ["$lon2Rad", "$lon1Rad"] }
+              },
+              in: {
+                $multiply: [
+                  6371000,
+                  {
+                    $acos: {
+                      $min: [
+                        1,
+                        {
+                          $add: [
+                            { $multiply: [{ $sin: "$lat1Rad" }, { $sin: "$lat2Rad" }] },
+                            { $multiply: [{ $cos: "$lat1Rad" }, { $cos: "$lat2Rad" }, { $cos: "$$dLon" }] }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
 
-    // Filter out missing sellers
-    const validProducts = productsWithScores.filter(Boolean);
-    // Sort: higher similarity first, then closer distance
-    validProducts.sort((a, b) => {
-      if (b.similarity === a.similarity) {
-        return a.distance - b.distance; // smaller distance first
-      }
-      return b.similarity - a.similarity;
-    });
-    console.log("productsproducts paginated", validProducts.length)
+      // SIMILARITY CALC
+      {
+        $addFields: {
+          similarity: {
+            $let: {
+              vars: {
+                userVec: userVector,
+                prodVec: "$productVector"
+              },
+              in: {
+                $cond: [
+                  { $eq: [{ $size: "$$userVec" }, { $size: "$$prodVec" }] },
+                  {
+                    $divide: [
+                      {
+                        $sum: {
+                          $map: {
+                            input: { $range: [0, { $size: "$$userVec" }] },
+                            as: "i",
+                            in: {
+                              $multiply: [
+                                { $arrayElemAt: ["$$userVec", "$$i"] },
+                                { $arrayElemAt: ["$$prodVec", "$$i"] }
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        $multiply: [
+                          { $sqrt: { $sum: { $map: { input: "$$userVec", as: "x", in: { $pow: ["$$x", 2] } } } } },
+                          { $sqrt: { $sum: { $map: { input: "$$prodVec", as: "x", in: { $pow: ["$$x", 2] } } } } }
+                        ]
+                      }
+                    ]
+                  },
+                  0
+                ]
+              }
+            }
+          }
+        }
+      },
 
-    // Pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
-    const paginated = validProducts.slice(startIndex, endIndex);
+      {
+        $addFields: {
+          rank: {
+            $switch: {
+              branches: [
+                { case: { $and: [{ $gte: ["$similarity", 0.25] }, { $lte: ["$distance_m", 15000] }] }, then: 1 },
+                { case: { $and: [{ $gte: ["$similarity", 0.25] }, { $lte: ["$distance_m", 50000] }] }, then: 2 },
+                { case: { $and: [{ $gte: ["$similarity", 0.25] }, { $lte: ["$distance_m", 200000] }] }, then: 3 },
+                { case: { $and: [{ $gte: ["$similarity", 0.25] }, { $lte: ["$distance_m", 1000000] }] }, then: 4 },
+                { case: { $gte: ["$similarity", 0.25] }, then: 5 },
+                { case: { $and: [{ $gte: ["$similarity", 0.15] }, { $lte: ["$distance_m", 15000] }] }, then: 6 },
+                { case: { $and: [{ $gte: ["$similarity", 0.15] }, { $lte: ["$distance_m", 50000] }] }, then: 7 },
+                { case: { $and: [{ $gte: ["$similarity", 0.15] }, { $lte: ["$distance_m", 200000] }] }, then: 8 },
+                { case: { $and: [{ $gte: ["$similarity", 0.15] }, { $lte: ["$distance_m", 1000000] }] }, then: 9 },
+                { case: { $gte: ["$similarity", 0.15] }, then: 10 },
 
-    // Prepare liked/saved/followed details
-    const productIds = paginated.map(p => p.product._id);
-    const likedDocs = await LikeCollection.find({ user_id, product_id: { $in: productIds } }).select("product_id");
-    const savedDocs = await Saved.find({ user_id, product_id: { $in: productIds } }).select("product_id");
-    const likedProductIds = new Set(likedDocs.map(doc => doc.product_id.toString()));
-    const savedProductIds = new Set(savedDocs.map(doc => doc.product_id.toString()));
+              ],
+              default: 999
+            }
+          }
+        }
+      },
 
+      {
+        $sort: {
+          rank: 1,          // first priority
+          similarity: -1,   // second priority (high → low)
+          distance_m: 1     // last priority (near → far)
+        }
+      },
 
-    const finalProducts = await Promise.all(
-      paginated.map(async (entry) => {
-        const { product, seller } = entry;
-        const isFollowing = await FollowedCollection.exists({ user_id, seller_id: seller._id });
+      { $skip: (parseInt(page) - 1) * parseInt(limit) },
+      { $limit: parseInt(limit) },
 
-        const productObj = product.toObject ? product.toObject() : product;
-        delete productObj.vector;
-
-        return {
-          ...productObj,
-          liked_me: likedProductIds.has(product._id.toString()),
-          saved: savedProductIds.has(product._id.toString()),
-          followed: !!isFollowing,
-          sellerProfile: seller.profile_picture ?? '',
-          distance_km: (entry.distance / 1000).toFixed(2),
-          similarity: entry.similarity
-        };
-      })
-    );
+      { $project: { productVector: 0, vector: 0 } }
+    ]);
 
     res.status(200).json({
       status: "success",
       page: parseInt(page),
       limit: parseInt(limit),
-      total_products: validProducts.length,
-      products: finalProducts
+      products
     });
 
   } catch (error) {
@@ -347,6 +534,73 @@ router.get("/all/products/for/customer", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+
+router.get("/similarity", async (req, res) => {
+  try {
+    const { userId, productId } = req.query;
+
+    if (!userId || !productId) {
+      return res.status(400).json({
+        status: "error",
+        message: "userId and productId are required"
+      });
+    }
+
+    const user = await User.findById(userId);
+    const product = await Product.findById(productId);
+
+    if (!user || !user.vector) {
+      return res.status(404).json({ status: "error", message: "User or user vector not found" });
+    }
+
+    if (!product || !product.vector) {
+      return res.status(404).json({ status: "error", message: "Product or product vector not found" });
+    }
+
+    // Convert string vectors to numbers
+    const userVector = user.vector.map(v => parseFloat(v));
+    const prodVector = product.vector.map(v => parseFloat(v));
+
+    if (userVector.length !== prodVector.length) {
+      return res.json({
+        status: "success",
+        similarity: 0,
+        message: "Vector size mismatch, returning similarity 0"
+      });
+    }
+
+    // ----- Compute Cosine Similarity -----
+    const dotProduct = userVector.reduce((sum, u, i) => sum + (u * prodVector[i]), 0);
+
+    const userMagnitude = Math.sqrt(
+      userVector.reduce((sum, v) => sum + v * v, 0)
+    );
+
+    const prodMagnitude = Math.sqrt(
+      prodVector.reduce((sum, v) => sum + v * v, 0)
+    );
+
+    let similarity = 0;
+    if (userMagnitude !== 0 && prodMagnitude !== 0) {
+      similarity = dotProduct / (userMagnitude * prodMagnitude);
+    }
+
+    res.json({
+      status: "success",
+      similarity,
+      vectors: {
+        userVector,
+        productVector: prodVector
+      }
+    });
+
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
 
 
 router.post("/save", async (req, res) => {
