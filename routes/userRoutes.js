@@ -51,12 +51,10 @@ router.post("/create", async (req, res) => {
     });
     console.log("gggg",userData)
     const savedUser = await user.save();
-            console.log("user dtaa is --- 4", savedUser)
     if (!savedUser.user_id) {
       savedUser.user_id = savedUser._id.toString();
       await savedUser.save();
     }
-    console.log("user dtaa is --- 5")
     res.status(200).json({
       status: "success",
       user: savedUser,
