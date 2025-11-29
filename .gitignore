@@ -11,4 +11,5 @@ yarn-error.log*
 
 # Optional: OS files
 .DS_Store
+# serviceAccountKey.json
 serviceAccountKey.json
