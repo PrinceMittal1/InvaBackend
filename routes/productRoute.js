@@ -367,7 +367,6 @@ router.get("/all/products/for/customer", async (req, res) => {
     }
 
     const user = await User.findById(user_id);
-
     if (!user || !user.vector || !user.cords?.latitude || !user.cords?.longitude) {
       return res.status(404).json({ status: "error", message: "User vector or location not found" });
     }
@@ -385,8 +384,8 @@ router.get("/all/products/for/customer", async (req, res) => {
       ];
     }
 
-    // MAIN AGGREGATION
-    const products = await Product.aggregate([
+    // Aggregation (same logic you had, keep sellerId in projection)
+    const aggResults = await Product.aggregate([
       { $match: matchFilter },
 
       {
@@ -409,7 +408,7 @@ router.get("/all/products/for/customer", async (req, res) => {
         }
       },
 
-      // DISTANCE CALCULATION
+      // DISTANCE CALCULATION (meters)
       {
         $addFields: {
           distance_m: {
@@ -441,7 +440,7 @@ router.get("/all/products/for/customer", async (req, res) => {
         }
       },
 
-      // SIMILARITY CALC
+      // SIMILARITY (cosine)
       {
         $addFields: {
           similarity: {
@@ -485,6 +484,7 @@ router.get("/all/products/for/customer", async (req, res) => {
         }
       },
 
+      // RANK
       {
         $addFields: {
           rank: {
@@ -499,8 +499,7 @@ router.get("/all/products/for/customer", async (req, res) => {
                 { case: { $and: [{ $gte: ["$similarity", 0.15] }, { $lte: ["$distance_m", 50000] }] }, then: 7 },
                 { case: { $and: [{ $gte: ["$similarity", 0.15] }, { $lte: ["$distance_m", 200000] }] }, then: 8 },
                 { case: { $and: [{ $gte: ["$similarity", 0.15] }, { $lte: ["$distance_m", 1000000] }] }, then: 9 },
-                { case: { $gte: ["$similarity", 0.15] }, then: 10 },
-
+                { case: { $gte: ["$similarity", 0.15] }, then: 10 }
               ],
               default: 999
             }
@@ -508,25 +507,93 @@ router.get("/all/products/for/customer", async (req, res) => {
         }
       },
 
+      // SORT + PAGINATION
       {
         $sort: {
-          rank: 1,          // first priority
-          similarity: -1,   // second priority (high → low)
-          distance_m: 1     // last priority (near → far)
+          rank: 1,
+          similarity: -1,
+          distance_m: 1
         }
       },
-
       { $skip: (parseInt(page) - 1) * parseInt(limit) },
       { $limit: parseInt(limit) },
 
-      { $project: { productVector: 0, vector: 0 } }
+      // keep fields we need for post-processing: include sellerId and keep distance + similarity
+      {
+        $project: {
+          vector: 0,
+          productVector: 0,
+          prodLat: 0,
+          prodLon: 0,
+          lat1Rad: 0,
+          lon1Rad: 0,
+          lat2Rad: 0,
+          lon2Rad: 0
+        }
+      }
     ]);
 
-    res.status(200).json({
+    // If no results, return early
+    if (!aggResults || aggResults.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        page: parseInt(page),
+        limit: parseInt(limit),
+        products: []
+      });
+    }
+
+    // Post-processing: collect productIds and sellerIds
+    const productIds = aggResults.map(p => p._id);
+    const sellerIds = aggResults.map(p => p.sellerId).filter(Boolean);
+    
+
+    // Parallel queries for liked, saved and sellers
+    const [
+      likedDocs,
+      savedDocs,
+      sellers,
+      followedDocs
+    ] = await Promise.all([
+      LikeCollection.find({ user_id, product_id: { $in: productIds } }).select("product_id"),
+      Saved.find({ user_id, product_id: { $in: productIds } }).select("product_id"),
+      SellerCollection.find({ _id: { $in: sellerIds } }).select("_id profile_picture cords"),
+      FollowedCollection.find({ user_id, seller_id: { $in: sellerIds } }).select("seller_id")
+    ]);
+
+    const likedProductIds = new Set(likedDocs.map(d => d.product_id.toString()));
+    const savedProductIds = new Set(savedDocs.map(d => d.product_id.toString()));
+    const followedSellerIds = new Set(followedDocs.map(d => d.seller_id.toString()));
+    const sellerMap = new Map(sellers.map(s => [s._id.toString(), s]));
+
+    // Build final products array
+    const finalProducts = aggResults.map(item => {
+      const productObj = item; // item is plain object from aggregation
+      const prodIdStr = productObj._id.toString();
+      const sellerIdStr = productObj.sellerId ? productObj.sellerId.toString() : null;
+      const seller = sellerIdStr ? sellerMap.get(sellerIdStr) : null;
+
+      // compute distance_km nicely
+      const distance_km = typeof productObj.distance_m === "number"
+        ? (productObj.distance_m / 1000).toFixed(2)
+        : null;
+
+      return {
+        ...productObj,
+        liked_me: likedProductIds.has(prodIdStr),
+        saved: savedProductIds.has(prodIdStr),
+        followed: sellerIdStr ? followedSellerIds.has(sellerIdStr) : false,
+        sellerProfile: seller ? (seller.profile_picture ?? "") : "",
+        distance_km,
+        similarity: productObj.similarity ?? 0
+      };
+    });
+
+    return res.status(200).json({
       status: "success",
       page: parseInt(page),
       limit: parseInt(limit),
-      products
+      products: finalProducts
     });
 
   } catch (error) {
@@ -534,6 +601,7 @@ router.get("/all/products/for/customer", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 
 
 router.get("/similarity", async (req, res) => {
@@ -774,6 +842,58 @@ router.get("/detail", async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+
+router.get("/seller/product/details", async (req, res) => {
+  try {
+
+    const product_id =
+      req.query?.product_id ||
+      req.params?.product_id ||
+      (req.body && req.body.product_id) ||
+      req.headers['x-product-id'];
+
+    if (!product_id) {
+      return res.status(400).json({
+        status: "error",
+        message: "product_id is required. send as ?product_id= or in JSON body or header x-product-id",
+      });
+    }
+
+    // 3) Find product
+    const product = await Product.findById(product_id)
+      .select("-vector -password")
+      .lean();
+
+    if (!product) {
+      return res.status(404).json({
+        status: "error",
+        message: "Product not found",
+      });
+    }
+
+    // 4) Optional: verify seller exists
+    const seller = await SellerCollection.findById(product.sellerId);
+    if (!seller) {
+      return res.status(404).json({
+        status: "error",
+        message: "Seller for this product does not exist",
+      });
+    }
+
+    // 5) Success
+    return res.status(200).json({
+      status: "success",
+      product,
+    });
+  } catch (error) {
+    console.error("Error fetching product details:", error);
+    return res.status(500).json({
+      status: "error",
+      message: error.message || "Internal server error",
+    });
+  }
+});
+
 
 
 router.delete("/delete/:product_id", async (req, res) => {
