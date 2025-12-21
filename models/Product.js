@@ -8,7 +8,7 @@ const ProductSchema = new mongoose.Schema({
   sellerCity: { type: String },
   sellerState: { type: String },
   tags: { type: [String] },
-  productType: { type: [String] },
+  productType: { type: String },
   cords: {
     latitude: { type: String, default: '' },
     longitude: { type: String, default: '' }
