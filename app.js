@@ -63,6 +63,7 @@ const productRoutes = require("./routes/productRoute");
 const notificationRoutes = require("./routes/notificationRoute");
 const sellerRoutes = require("./routes/sellerRoute");
 const contentRoutes = require("./routes/contentRoutes");
+const productTypeRoute = require("./routes/productType");
 
 app.use("/.well-known", express.static(path.join(__dirname, ".well-known")));
 app.get("/product/:id", (req, res) => {
@@ -103,6 +104,7 @@ app.use("/api/product", productRoutes);
 app.use("/api/notification", notificationRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/content", contentRoutes);
+app.use("/api/productType", productTypeRoute);
 
 
 // Start server

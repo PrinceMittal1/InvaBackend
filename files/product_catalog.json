@@ -1,0 +1,52 @@
+{
+  "electronics": {
+    "label": "Electronics",
+    "tags": [
+      "mobile",
+      "laptop",
+      "tablet",
+      "smartwatch",
+      "headphones",
+      "camera",
+      "charger",
+      "power bank"
+    ]
+  },
+  "fashion": {
+    "label": "Fashion",
+    "tags": [
+      "t-shirt",
+      "jeans",
+      "jacket",
+      "shoes",
+      "sneakers",
+      "watch",
+      "belt",
+      "sunglasses"
+    ]
+  },
+  "home_appliances": {
+    "label": "Home Appliances",
+    "tags": [
+      "refrigerator",
+      "washing machine",
+      "microwave",
+      "air conditioner",
+      "vacuum cleaner",
+      "heater",
+      "fan"
+    ]
+  },
+  "grocery": {
+    "label": "Grocery",
+    "tags": [
+      "vegetables",
+      "fruits",
+      "snacks",
+      "beverages",
+      "dairy",
+      "rice",
+      "spices"
+    ]
+  }
+}

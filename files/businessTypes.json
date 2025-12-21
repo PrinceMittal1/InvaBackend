@@ -1,0 +1,20 @@
+{
+  "retail_store": {
+    "label": "Retail Store"
+  },
+  "restaurant": {
+    "label": "Restaurant"
+  },
+  "service_provider": {
+    "label": "Service Provider"
+  },
+  "wholesaler": {
+    "label": "Wholesaler"
+  },
+  "manufacturer": {
+    "label": "Manufacturer"
+  },
+  "online_business": {
+    "label": "Online Business"
+  }
+}
