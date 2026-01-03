@@ -1,0 +1,17 @@
+{
+  "Tshirt": {
+    "label": "Tshirt"
+  },
+  "Pants": {
+    "label": "Pants"
+  },
+  "Suits": {
+    "label": "Suits"
+  },
+  "Gadget": {
+    "label": "Gadget"
+  },
+  "Electronics": {
+    "label": "Electronics"
+  }
+}
