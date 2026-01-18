@@ -12,12 +12,7 @@ const openai = new OpenAI({
 
 router.post("/create", async (req, res) => {
   try {
-    console.log("user dtaa is --- 0")
-
-    console.log("user dtaa is --- 001", req.body)
     const userData = req.body;
-
-    console.log("user dtaa is --- 1")
     const conditions = [];
     if (userData.email) {
       conditions.push({ email: userData.email });
@@ -25,21 +20,19 @@ router.post("/create", async (req, res) => {
     if (userData.phoneNumber) {
       conditions.push({ phoneNumber: userData.phoneNumber });
     }
-    console.log("user dtaa is --- 2")
     let existingUser = null;
     if (conditions.length > 0) {
       existingUser = await User.findOne({ $or: conditions }).select("-password -vector");
     }
-    console.log("user dtaa is --- 3")
     if (existingUser) {
       if (userData.email && existingUser.email === userData.email) {
-        res.status(200).json({
+        res.status(201).json({
           status: "success",
           user: existingUser,
         });
       }
       if (userData.phoneNumber && existingUser.phoneNumber === userData.phoneNumber) {
-        res.status(200).json({
+        res.status(201).json({
           status: "success",
           user: existingUser,
         });
@@ -49,7 +42,6 @@ router.post("/create", async (req, res) => {
       ...userData,
       // vector: null
     });
-    console.log("gggg", userData)
     const savedUser = await user.save();
     if (!savedUser.user_id) {
       savedUser.user_id = savedUser._id.toString();
