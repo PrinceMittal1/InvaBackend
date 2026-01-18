@@ -257,8 +257,8 @@ router.get("/wishlist", async (req, res) => {
           liked_me: likedProductIds.has(p._id.toString()),
           saved: savedProductIds.has(p._id.toString()),
           followed: !!isFollowing,
-          sellerProfile: sellerDetail.profile_picture || null,
-          businessName: sellerDetail ? (sellerDetail.businessName ?? "") : "",
+          sellerProfile: sellerDetail?.profile_picture || null,
+          businessName: sellerDetail ? (sellerDetail?.businessName ?? "") : "",
         };
       })
     );
