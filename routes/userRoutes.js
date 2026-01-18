@@ -49,7 +49,7 @@ router.post("/create", async (req, res) => {
       ...userData,
       // vector: null
     });
-    console.log("gggg",userData)
+    console.log("gggg", userData)
     const savedUser = await user.save();
     if (!savedUser.user_id) {
       savedUser.user_id = savedUser._id.toString();
@@ -89,7 +89,7 @@ router.post("/updating", async (req, res) => {
     res.status(200).json({
       status: "success",
       user_id: updatedUser._id,
-      userData : updatedUser
+      userData: updatedUser
     });
 
     (async () => {
@@ -265,7 +265,8 @@ router.get("/wishlist", async (req, res) => {
           liked_me: likedProductIds.has(p._id.toString()),
           saved: savedProductIds.has(p._id.toString()),
           followed: !!isFollowing,
-          sellerProfile: sellerDetail.profile_picture || null
+          sellerProfile: sellerDetail.profile_picture || null,
+          businessName: sellerDetail ? (sellerDetail.businessName ?? "") : "",
         };
       })
     );
@@ -294,7 +295,7 @@ router.get("/detail", async (req, res) => {
     }
     existingUser = await User.findOne({ user_id }).select("-vector");
     res.status(200).json({
-      data : existingUser
+      data: existingUser
     })
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });

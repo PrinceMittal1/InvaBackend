@@ -557,7 +557,7 @@ router.get("/all/products/for/customer", async (req, res) => {
     ] = await Promise.all([
       LikeCollection.find({ user_id, product_id: { $in: productIds } }).select("product_id"),
       Saved.find({ user_id, product_id: { $in: productIds } }).select("product_id"),
-      SellerCollection.find({ _id: { $in: sellerIds } }).select("_id profile_picture cords"),
+      SellerCollection.find({ _id: { $in: sellerIds } }).select("_id profile_picture cords businessName"),
       FollowedCollection.find({ user_id, seller_id: { $in: sellerIds } }).select("seller_id")
     ]);
 
@@ -573,7 +573,6 @@ router.get("/all/products/for/customer", async (req, res) => {
       const sellerIdStr = productObj.sellerId ? productObj.sellerId.toString() : null;
       const seller = sellerIdStr ? sellerMap.get(sellerIdStr) : null;
 
-      // compute distance_km nicely
       const distance_km = typeof productObj.distance_m === "number"
         ? (productObj.distance_m / 1000).toFixed(2)
         : null;
@@ -584,6 +583,7 @@ router.get("/all/products/for/customer", async (req, res) => {
         saved: savedProductIds.has(prodIdStr),
         followed: sellerIdStr ? followedSellerIds.has(sellerIdStr) : false,
         sellerProfile: seller ? (seller.profile_picture ?? "") : "",
+        businessName : seller ? (seller.businessName ?? "") : "",
         distance_km,
         similarity: productObj.similarity ?? 0
       };
