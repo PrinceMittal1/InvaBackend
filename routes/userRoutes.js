@@ -10,81 +10,89 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// router.post("/create", async (req, res) => {
+//   // Track if we've already sent a response
+//   let responseSent = false;
+
+//   const sendResponse = (statusCode, data) => {
+//     if (responseSent) {
+//       console.warn("Attempted to send multiple responses for the same request");
+//       return;
+//     }
+//     responseSent = true;
+//     return res.status(statusCode).json(data);
+//   };
+
+//   try {
+//     console.log("create logs ---- 1");
+//     const userData = req.body;
+//     const conditions = [];
+
+//     if (userData.email) {
+//       conditions.push({ email: userData.email });
+//     }
+//     if (userData.phoneNumber) {
+//       conditions.push({ phoneNumber: userData.phoneNumber });
+//     }
+
+//     console.log("create logs ---- 2");
+
+//     let existingUser = null;
+//     if (conditions.length > 0) {
+//       existingUser = await User.findOne({ $or: conditions }).select("-password -vector");
+//     }
+
+//     console.log("create logs ---- 3", existingUser);
+
+//     if (existingUser) {
+//       return sendResponse(200, {
+//         status: "success",
+//         user: existingUser,
+//       });
+//     }
+
+//     console.log("create logs ---- 4");
+
+//     const user = new User({ ...userData });
+//     const savedUser = await user.save();
+
+//     console.log("create logs ---- 5", savedUser);
+
+//     if (!savedUser.user_id) {
+//       savedUser.user_id = savedUser._id.toString();
+//       await savedUser.save();
+//     }
+
+//     console.log("create logs ---- 6");
+
+//     return sendResponse(200, {
+//       status: "success",
+//       user: savedUser,
+//     });
+
+//   } catch (error) {
+//     // If response was already sent, just log the error
+//     if (responseSent) {
+//       console.error("Error occurred after response was sent:", error.message);
+//       return;
+//     }
+
+//     console.error("create logs ---- ERROR:", error.message);
+//     return res.status(500).json({
+//       status: "error",
+//       message: error.message
+//     });
+//   }
+// });
+
+
 router.post("/create", async (req, res) => {
-  // Track if we've already sent a response
-  let responseSent = false;
-
-  const sendResponse = (statusCode, data) => {
-    if (responseSent) {
-      console.warn("Attempted to send multiple responses for the same request");
-      return;
-    }
-    responseSent = true;
-    return res.status(statusCode).json(data);
-  };
-
-  try {
-    console.log("create logs ---- 1");
-    const userData = req.body;
-    const conditions = [];
-
-    if (userData.email) {
-      conditions.push({ email: userData.email });
-    }
-    if (userData.phoneNumber) {
-      conditions.push({ phoneNumber: userData.phoneNumber });
-    }
-
-    console.log("create logs ---- 2");
-
-    let existingUser = null;
-    if (conditions.length > 0) {
-      existingUser = await User.findOne({ $or: conditions }).select("-password -vector");
-    }
-
-    console.log("create logs ---- 3", existingUser);
-
-    if (existingUser) {
-      return sendResponse(200, {
-        status: "success",
-        user: existingUser,
-      });
-    }
-
-    console.log("create logs ---- 4");
-
-    const user = new User({ ...userData });
-    const savedUser = await user.save();
-
-    console.log("create logs ---- 5", savedUser);
-
-    if (!savedUser.user_id) {
-      savedUser.user_id = savedUser._id.toString();
-      await savedUser.save();
-    }
-
-    console.log("create logs ---- 6");
-
-    return sendResponse(200, {
+  res.status(200).json({
       status: "success",
-      user: savedUser,
+      user_id: '',
+      userData: ''
     });
-
-  } catch (error) {
-    // If response was already sent, just log the error
-    if (responseSent) {
-      console.error("Error occurred after response was sent:", error.message);
-      return;
-    }
-
-    console.error("create logs ---- ERROR:", error.message);
-    return res.status(500).json({
-      status: "error",
-      message: error.message
-    });
-  }
 });
-
 
 
 router.post("/updating", async (req, res) => {
