@@ -206,7 +206,6 @@ const invaBusinessContent = {
 
 
 router.get("/inva/:type", (req, res) => {
-  console.log("content api hitted ------------")
   const { type } = req.params;
   if (!invaContent[type]) {
     return res.status(404).send("<h1>404 - Page Not Found</h1>");

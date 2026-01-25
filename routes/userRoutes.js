@@ -11,6 +11,18 @@ const openai = new OpenAI({
 });
 
 router.post("/create", async (req, res) => {
+  // Track if we've already sent a response
+  let responseSent = false;
+
+  const sendResponse = (statusCode, data) => {
+    if (responseSent) {
+      console.warn("Attempted to send multiple responses for the same request");
+      return;
+    }
+    responseSent = true;
+    return res.status(statusCode).json(data);
+  };
+
   try {
     console.log("create logs ---- 1");
     const userData = req.body;
@@ -33,7 +45,7 @@ router.post("/create", async (req, res) => {
     console.log("create logs ---- 3", existingUser);
 
     if (existingUser) {
-      return res.status(200).json({
+      return sendResponse(200, {
         status: "success",
         user: existingUser,
       });
@@ -53,13 +65,23 @@ router.post("/create", async (req, res) => {
 
     console.log("create logs ---- 6");
 
-    return res.status(200).json({
+    return sendResponse(200, {
       status: "success",
       user: savedUser,
     });
 
   } catch (error) {
-    return res.status(500).json({ status: "error", message: error.message });
+    // If response was already sent, just log the error
+    if (responseSent) {
+      console.error("Error occurred after response was sent:", error.message);
+      return;
+    }
+
+    console.error("create logs ---- ERROR:", error.message);
+    return res.status(500).json({
+      status: "error",
+      message: error.message
+    });
   }
 });
 
