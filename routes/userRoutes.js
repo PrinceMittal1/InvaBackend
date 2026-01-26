@@ -11,7 +11,6 @@ const openai = new OpenAI({
 });
 
 router.post("/create", async (req, res) => {
-  // Track if we've already sent a response
   let responseSent = false;
 
   const sendResponse = (statusCode, data) => {
